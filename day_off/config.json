@@ -1,0 +1,5 @@
+{
+  "default_days": 1,
+  "include_intraday_learning": true,
+  "backup_first": true
+}

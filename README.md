@@ -9,16 +9,13 @@ Built and used against **Anki 25.07** on macOS with Qt6.
 | Add-on | What it's for |
 |---|---|
 | [Card Chat](#card-chat) | Ask Claude about the card you're looking at, without leaving Anki |
+| [Take a Day Off](#take-a-day-off) | Slide your whole schedule forward so time off costs nothing |
 | [Study Companion](#study-companion) | Real study time, XP, streaks and a finish-time estimate in the toolbar |
 | [Auto-Answer Good](#auto-answer-good) | Bulk-answer "Good" through the real scheduler |
 | [Topic Stats](#topic-stats) | Your strongest and weakest topics on the deck screen |
 | [Suspend New & Learning](#suspend-new--learning) | Suspend a deck's new and learning cards in one pass |
 | [One-Key Sync](#one-key-sync) | Sync on a single keypress |
 | [Progress Debug](#progress-debug) | A throwaway diagnostic — read the warning before installing |
-
-Also see **[Take a Day Off](https://github.com/SashaLawrence13/anki-day-off)**, in
-its own repository: it slides your entire review schedule forward so time away
-doesn't create a catch-up pile.
 
 ## Installing any of these
 
@@ -34,6 +31,12 @@ Keep the folder name exactly as it appears here.
 ```bash
 git clone https://github.com/SashaLawrence13/anki-addons.git
 cp -r anki-addons/card_chat "$HOME/Library/Application Support/Anki2/addons21/card_chat"
+```
+
+Or build an installable package and double-click it:
+
+```bash
+./build.sh day_off      # one add-on, or omit the name to build all eight
 ```
 
 Settings live in *Tools → Add-ons → (select) → Config*.
@@ -69,6 +72,28 @@ The other five `*_shortcut` keys in the config are declared but never registered
 **Full setup guide:** [`card_chat/INSTALL_WITH_CLAUDE.md`](card_chat/INSTALL_WITH_CLAUDE.md)
 is written to be handed to Claude. Download it, give it to your assistant, and
 say "follow this file to install Card Chat for me."
+
+## Take a Day Off
+
+Adds **Tools → Take a Day Off…**  Pick a number of days and your entire review
+schedule slides forward by exactly that much — intervals, ease factors and FSRS
+memory state untouched, so nothing is treated as late.
+
+The point is that it moves *every* scheduled card, not just the ones due now.
+Postponing only today's queue empties today and hands you a double pile
+tomorrow; this preserves the shape of the schedule and simply starts it later.
+On a 20,013-card collection, a 7-day shift:
+
+| | today | +1 | +2 | +3 | +4 | +5 | +6 | +7 | +8 | +9 | +10 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| **before** | 22 | 513 | 642 | 466 | 415 | 394 | 346 | 315 | 286 | 253 | 226 |
+| **after** | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 22 | 513 | 642 | 466 |
+
+New cards are deliberately left alone — they have no due date to miss. Backs up
+the collection first, lands as a single undo step, and is exactly reversible by
+re-running with a negative number.
+
+Details and caveats: [`day_off/README.md`](day_off/README.md).
 
 ## Study Companion
 
