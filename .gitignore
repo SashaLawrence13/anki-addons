@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+
+# Written by Anki at runtime: holds each user's own config and enabled state.
+meta.json
+
+# Add-on runtime data. Never commit this — it is the user's own study data.
+user_files/
+
+# Build output
+*.ankiaddon
+
+.DS_Store

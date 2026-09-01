@@ -1,0 +1,7 @@
+{
+    "shortcut": "Ctrl+Shift+C",
+    "claude_path": "",
+    "model": "",
+    "timeout_seconds": 120,
+    "open_on_start": true
+}

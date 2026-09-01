@@ -1,0 +1,6 @@
+{
+    "idle_pause_seconds": 60,
+    "auto_sync_idle_seconds": 300,
+    "show_recap_on_close": true,
+    "recap_auto_close_seconds": 6
+}
