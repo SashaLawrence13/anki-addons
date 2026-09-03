@@ -10,6 +10,7 @@ Built and used against **Anki 25.07** on macOS with Qt6.
 |---|---|
 | [Card Chat](#card-chat) | Ask Claude about the card you're looking at, without leaving Anki |
 | [Take a Day Off](#take-a-day-off) | Slide your whole schedule forward so time off costs nothing |
+| [Spread to a Deadline](#spread-to-a-deadline) | Fan a backlog out evenly over the days before a deadline |
 | [Study Companion](#study-companion) | Real study time, XP, streaks and a finish-time estimate in the toolbar |
 | [Auto-Answer Good](#auto-answer-good) | Bulk-answer "Good" through the real scheduler |
 | [Topic Stats](#topic-stats) | Your strongest and weakest topics on the deck screen |
@@ -36,7 +37,7 @@ cp -r anki-addons/card_chat "$HOME/Library/Application Support/Anki2/addons21/ca
 Or build an installable package and double-click it:
 
 ```bash
-./build.sh day_off      # one add-on, or omit the name to build all eight
+./build.sh day_off      # one add-on, or omit the name to build them all
 ```
 
 Settings live in *Tools → Add-ons → (select) → Config*.
@@ -94,6 +95,27 @@ the collection first, lands as a single undo step, and is exactly reversible by
 re-running with a negative number.
 
 Details and caveats: [`day_off/README.md`](day_off/README.md).
+
+## Spread to a Deadline
+
+The opposite of Take a Day Off. Adds **Tools → Spread to a Deadline…**  Pick a
+deck and a date, and everything you're already behind on is fanned out evenly
+across the days between now and then — most overdue first — so the backlog is
+gone before the deadline instead of sitting in one pile on today.
+
+The part that makes it honest: cards already scheduled inside that window stay
+where they are, so the confirmation quotes the **combined** daily load — the
+spread backlog plus the reviews those days were always going to bring. A tool
+that reported only the backlog would promise 8 cards a day and hand you 532.
+
+If a deck is selected, it also checks the plan against that deck's reviews/day
+limit and warns when the busiest days would exceed it, since Anki would
+otherwise hide the overflow and you'd never see the cards you just scheduled.
+
+Only due dates move: intervals, ease and FSRS memory state are untouched, so
+nothing is rescheduled as though you'd answered it. New and suspended cards are
+left alone, and cards sitting in filtered decks keep their home-deck due date in
+step. Takes a backup first, and the whole redistribution is a single undo step.
 
 ## Study Companion
 
