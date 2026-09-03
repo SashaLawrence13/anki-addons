@@ -18,10 +18,22 @@ Built and used against **Anki 25.07** on macOS with Qt6.
 | [One-Key Sync](#one-key-sync) | Sync on a single keypress |
 | [Progress Debug](#progress-debug) | A throwaway diagnostic — read the warning before installing |
 
-## Installing any of these
+## Never used GitHub? Let your AI assistant do it
 
-Close Anki, copy the add-on's folder into your add-ons directory, reopen Anki.
-Keep the folder name exactly as it appears here.
+Download **[INSTALL_WITH_CLAUDE.md](INSTALL_WITH_CLAUDE.md)**, drag it into
+Claude, and say *"install these Anki add-ons for me."* It walks the assistant
+through picking which ones you want, finding your add-ons folder on any OS,
+downloading without git or a GitHub account, installing, and checking each one
+actually loaded. No terminal knowledge needed.
+
+Right-click → Save As on
+[this link](https://raw.githubusercontent.com/SashaLawrence13/anki-addons/main/INSTALL_WITH_CLAUDE.md),
+or just paste that URL into Claude and ask it to follow the file.
+
+## Installing them yourself
+
+Close Anki first, copy the add-on's folder into your add-ons directory, then
+reopen Anki. Keep the folder name exactly as it appears here.
 
 | OS | Add-ons folder |
 |---|---|
