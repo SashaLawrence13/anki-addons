@@ -6,10 +6,27 @@ in case they're useful — no AnkiWeb listing, no support promises.
 
 Built and used against **Anki 25.07** on macOS with Qt6.
 
+## Never used GitHub? Let any AI assistant install these for you
+
+Download **[INSTALL_WITH_AI.md](INSTALL_WITH_AI.md)**, hand it to Claude, ChatGPT,
+Gemini, Copilot or Cursor, and say *"install these Anki add-ons for me."* It walks the assistant
+through picking which ones you want, finding your add-ons folder on any OS,
+downloading without git or a GitHub account, installing, and checking each one
+actually loaded. If your assistant can't run
+commands, it walks you through it by hand instead. No terminal needed, no
+GitHub account, no git.
+
+Right-click → Save As on
+[this link](https://raw.githubusercontent.com/SashaLawrence13/anki-addons/main/INSTALL_WITH_AI.md),
+or paste that URL into any assistant that can browse, and ask it to follow the file.
+
 | Add-on | What it's for |
 |---|---|
 | [Card Chat](#card-chat) | Ask Claude about the card you're looking at, without leaving Anki |
 | [Take a Day Off](#take-a-day-off) | Slide your whole schedule forward so time off costs nothing |
+| [Exam Focus](#exam-focus) | Keep one subject due and push every other subject back |
+| [Image Blur Control](#image-blur-control) | Unblur images a deck ships blurred, without editing note types |
+| [Weak Topic Drill](#weak-topic-drill) | NBME-style questions on whatever you're failing today |
 | [Spread to a Deadline](#spread-to-a-deadline) | Fan a backlog out evenly over the days before a deadline |
 | [Study Companion](#study-companion) | Real study time, XP, streaks and a finish-time estimate in the toolbar |
 | [Auto-Answer Good](#auto-answer-good) | Bulk-answer "Good" through the real scheduler |
@@ -17,18 +34,6 @@ Built and used against **Anki 25.07** on macOS with Qt6.
 | [Suspend New & Learning](#suspend-new--learning) | Suspend a deck's new and learning cards in one pass |
 | [One-Key Sync](#one-key-sync) | Sync on a single keypress |
 | [Progress Debug](#progress-debug) | A throwaway diagnostic — read the warning before installing |
-
-## Never used GitHub? Let your AI assistant do it
-
-Download **[INSTALL_WITH_CLAUDE.md](INSTALL_WITH_CLAUDE.md)**, drag it into
-Claude, and say *"install these Anki add-ons for me."* It walks the assistant
-through picking which ones you want, finding your add-ons folder on any OS,
-downloading without git or a GitHub account, installing, and checking each one
-actually loaded. No terminal knowledge needed.
-
-Right-click → Save As on
-[this link](https://raw.githubusercontent.com/SashaLawrence13/anki-addons/main/INSTALL_WITH_CLAUDE.md),
-or just paste that URL into Claude and ask it to follow the file.
 
 ## Installing them yourself
 
@@ -82,7 +87,7 @@ locations (otherwise set `claude_path`).
 The other five `*_shortcut` keys in the config are declared but never registered
 — those features are buttons only.
 
-**Full setup guide:** [`card_chat/INSTALL_WITH_CLAUDE.md`](card_chat/INSTALL_WITH_CLAUDE.md)
+**Full setup guide:** [`card_chat/INSTALL_WITH_AI.md`](card_chat/INSTALL_WITH_AI.md)
 is written to be handed to Claude. Download it, give it to your assistant, and
 say "follow this file to install Card Chat for me."
 
@@ -128,6 +133,52 @@ Only due dates move: intervals, ease and FSRS memory state are untouched, so
 nothing is rescheduled as though you'd answered it. New and suspended cards are
 left alone, and cards sitting in filtered decks keep their home-deck due date in
 step. Takes a backup first, and the whole redistribution is a single undo step.
+
+## Exam Focus
+
+Cardiology exam tomorrow? Tick **Cardiology**, and every *other* subject is
+pushed back a day. Tomorrow you sit down to cardiology and nothing else, and the
+rest of the collection is waiting untouched the day after.
+
+Take a Day Off clears the day completely; this clears everything except what
+you're being tested on. Tick several subjects if the exam covers several.
+
+Subjects are read from your tag hierarchy — on a real AnKing collection that's
+22 of them, Cardiology through Surgery — and grouped exactly the way Topic Stats
+groups them, so a subject means the same thing across all these add-ons. Not on
+AnKing? Set `tag_prefixes` to `[]` and each top-level tag becomes a subject.
+
+Only due dates move: intervals, ease and FSRS memory state are untouched. Cards
+in filtered decks keep their place there and have their home-deck date moved
+instead. Backs up first, one undo step, and a negative number puts it back.
+
+## Image Blur Control
+
+Some shared decks ship images with `class="blur"` baked into the note, and the
+note type's styling turns that into a permanent smear. Editing the note type
+works right up until the deck syncs and overwrites it.
+
+This overrides the styling from outside instead, so nothing in your collection
+is modified and a deck update can't undo it. Four modes — **off** (just show
+them), **hover** (reveal while pointing), **click** (click to reveal, click to
+hide), and **keep** (leave the deck's blurring alone). Cycle them mid-review
+with <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>U</kbd>, or pick one in
+**Tools → Image Blur Control…**
+
+## Weak Topic Drill
+
+**Tools → Drill My Weak Topics…** reads your review log, works out which topics
+you've actually been failing — today by default — and asks Claude for NBME-style
+single-best-answer vignettes on exactly those, then quizzes you on them with
+per-question explanations.
+
+Vignettes are written to test reasoning, with distractors chosen as the mistakes
+someone who half-knows the topic would make. If today's history is too thin to
+rank anything it widens to a week and says so.
+
+**Requires the [Claude Code CLI](https://claude.com/claude-code)**, the same
+binary Card Chat uses. It sends topic *names* and accuracy percentages — not
+your cards. Nothing is written to your collection.
 
 ## Study Companion
 

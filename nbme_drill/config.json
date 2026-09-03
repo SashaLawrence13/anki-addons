@@ -1,0 +1,11 @@
+{
+    "window_days": 1,
+    "min_reviews": 10,
+    "topic_count": 3,
+    "question_count": 5,
+    "tag_prefixes": ["#AK_Step2_v12::#Bootcamp", "#AK_Step1_v12::#Bootcamp"],
+    "group_levels": 2,
+    "claude_path": "",
+    "model": "",
+    "timeout_seconds": 180
+}
