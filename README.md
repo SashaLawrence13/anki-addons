@@ -148,9 +148,23 @@ Subjects are read from your tag hierarchy — on a real AnKing collection that's
 groups them, so a subject means the same thing across all these add-ons. Not on
 AnKing? Set `tag_prefixes` to `[]` and each top-level tag becomes a subject.
 
+Anki's deck screen adds three things together, so a clean exam day means
+handling all three. Review cards move by date. Learning cards hold a timestamp
+instead, so they move in seconds. New cards have no due date at all — the only
+way to stop Anki offering them is to suspend them, so it does, recording exactly
+which ones; **Tools → Exam Focus: Release Held Cards** puts back precisely those
+and never touches cards you suspended yourself. Only new cards carrying your
+subject tags are eligible, so an unrelated deck is never disturbed, and a
+tickbox turns the whole behaviour off per run.
+
+On a real collection that's the difference between 989 cards waiting tomorrow
+and 107, all of them cardiology.
+
 Only due dates move: intervals, ease and FSRS memory state are untouched. Cards
 in filtered decks keep their place there and have their home-deck date moved
-instead. Backs up first, one undo step, and a negative number puts it back.
+instead. Best run after you finish today's reviews — cards move by date, so
+anything still sitting on today would land on tomorrow. Backs up first, one undo
+step, and a negative number puts it back.
 
 ## Image Blur Control
 

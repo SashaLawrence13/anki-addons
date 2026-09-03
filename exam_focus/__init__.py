@@ -16,7 +16,11 @@ A backup is taken first and the whole shift is one undo step.
 from __future__ import annotations
 
 import re
+import time
 from dataclasses import dataclass
+
+import json
+import os
 
 from anki.collection import Collection
 from aqt import mw
@@ -33,6 +37,10 @@ CHUNK = 500
 
 DEFAULTS = {
     "days": 1,
+    # A pure exam day means new and learning cards from other subjects have to
+    # be held back too, or Anki still serves them tomorrow.
+    "hold_other_new": True,
+    "include_learning": True,
     "tag_prefixes": ["#AK_Step2_v12::#Bootcamp", "#AK_Step1_v12::#Bootcamp"],
     "backup_first": True,
 }
@@ -106,21 +114,87 @@ def cards_in(bases: set[str]) -> set[int]:
 @dataclass
 class Result:
     moved: int = 0
+    learning: int = 0
+    held_new: int = 0
     kept: int = 0
     in_filtered: int = 0
     backed_up: bool = False
 
 
-def plan_shift(col: Collection, keep: set[int]) -> list[int]:
-    """Every date-scheduled card except the ones we're keeping."""
-    everything = col.db.list(
-        f"select id from cards where queue in {DAY_QUEUES}"
-    )
-    return [cid for cid in everything if cid not in keep]
+def held_file() -> str:
+    folder = os.path.join(os.path.dirname(__file__), "user_files")
+    os.makedirs(folder, exist_ok=True)
+    return os.path.join(folder, "held_new.json")
 
 
-def apply_shift(col: Collection, ids: list[int], days: int, conf: dict) -> Result:
+def load_held() -> list[int]:
+    try:
+        with open(held_file()) as handle:
+            return json.load(handle).get("card_ids", [])
+    except Exception:
+        return []
+
+
+def save_held(card_ids: list[int]) -> None:
+    with open(held_file(), "w") as handle:
+        json.dump({"card_ids": card_ids, "saved": time.time()}, handle)
+
+
+def plan_shift(col: Collection, keep: set[int], conf: dict):
+    """The three groups that have to move for a clean exam day.
+
+    Reviews move by date. Intraday learning cards store a timestamp instead, so
+    they move in seconds. New cards have no date at all — the only way to stop
+    Anki serving them tomorrow is to suspend them, so we do, and remember which
+    ones so they can be released afterwards.
+    """
+    reviews = [
+        cid
+        for cid in col.db.list(f"select id from cards where queue in {DAY_QUEUES}")
+        if cid not in keep
+    ]
+    learning = []
+    if conf.get("include_learning", True):
+        learning = [
+            cid
+            for cid in col.db.list("select id from cards where queue = 1")
+            if cid not in keep
+        ]
+    new = []
+    if conf.get("hold_other_new", True):
+        # Only cards inside the subject taxonomy. An unrelated deck — guitar
+        # practice, a language deck — is nobody's exam subject and is left be.
+        in_subjects = tagged_cards(conf)
+        new = [
+            cid
+            for cid in col.db.list("select id from cards where queue = 0")
+            if cid not in keep and (not in_subjects or cid in in_subjects)
+        ]
+    return reviews, learning, new
+
+
+def tagged_cards(conf: dict) -> set[int]:
+    """Every card whose note sits anywhere under the configured prefixes."""
+    prefixes = conf.get("tag_prefixes") or []
+    if not prefixes:
+        return set()
+    terms = []
+    for prefix in prefixes:
+        safe = prefix.replace('"', '\\"')
+        terms.append(f'"tag:{safe}::*"')
+    return set(mw.col.find_cards(" OR ".join(terms)))
+
+
+def apply_shift(
+    col: Collection,
+    reviews: list[int],
+    learning: list[int],
+    new: list[int],
+    days: int,
+    conf: dict,
+) -> Result:
     result = Result(kept=0)
+    ids = reviews
 
     if conf["backup_first"]:
         mw.taskman.run_on_main(
@@ -167,11 +241,60 @@ def apply_shift(col: Collection, ids: list[int], days: int, conf: dict) -> Resul
 
         mw.taskman.run_on_main(update)
 
+    # Learning cards keep a unix timestamp in `due`, not a day number.
+    for start in range(0, len(learning), CHUNK):
+        cards = [col.get_card(cid) for cid in learning[start : start + CHUNK]]
+        for card in cards:
+            card.due += days * 86400
+        if hasattr(col, "update_cards"):
+            col.update_cards(cards)
+        else:  # pragma: no cover - older API
+            for card in cards:
+                col.update_card(card)
+    result.learning = len(learning)
+
+    # New cards have no due date to move, so holding them back means
+    # suspending them. Remember exactly which, so releasing them later can't
+    # touch the thousands the user suspended deliberately.
+    if new:
+        col.sched.suspend_cards(new)
+        save_held(list(new))
+        result.held_new = len(new)
+
     if undo_pos is not None:
         col.merge_undo_entries(undo_pos)
 
     result.moved = total
     return result
+
+
+def release_held() -> None:
+    """Unsuspend exactly the new cards this add-on suspended."""
+    card_ids = load_held()
+    if not card_ids:
+        showInfo(
+            "No held cards to release.\n\nThis only unsuspends new cards that "
+            "Exam Focus suspended itself — it will never touch cards you "
+            "suspended deliberately.",
+            title=ADDON_NAME,
+        )
+        return
+    still = [
+        cid
+        for cid in card_ids
+        if col_queue(cid) == -1
+    ]
+    mw.col.sched.unsuspend_cards(still)
+    save_held([])
+    mw.reset()
+    showInfo(
+        f"Released {len(still):,} new cards back into rotation.",
+        title=ADDON_NAME,
+    )
+
+
+def col_queue(card_id: int) -> int | None:
+    return mw.col.db.scalar("select queue from cards where id = ?", card_id)
 
 
 # Interface
@@ -199,6 +322,18 @@ class ExamFocusDialog(QDialog):
             item.setCheckState(Qt.CheckState.Unchecked)
             self.list.addItem(item)
         layout.addWidget(self.list, 1)
+
+        self.hold_new = QCheckBox(
+            "Also hold back other subjects' new cards"
+        )
+        self.hold_new.setChecked(bool(conf.get("hold_other_new", True)))
+        self.hold_new.setToolTip(
+            "New cards have no due date, so the only way to keep them out of "
+            "tomorrow is to suspend them. Exam Focus remembers which ones and "
+            "can release exactly those afterwards.\n\nUntick if your new "
+            "cards are already held back by a deck limit."
+        )
+        layout.addWidget(self.hold_new)
 
         form = QFormLayout()
         self.days = QSpinBox()
@@ -266,17 +401,19 @@ def run() -> None:
         return
 
     conf["days"] = days
+    conf["hold_other_new"] = dialog.hold_new.isChecked()
     save_config(conf)
 
     bases: set[str] = set()
     for name in picked:
         bases |= found[name]
     keep = cards_in(bases)
-    ids = plan_shift(mw.col, keep)
+    reviews, learning, new = plan_shift(mw.col, keep, conf)
 
-    if not ids:
+    if not (reviews or learning or new):
         showInfo("Nothing to move.", title=ADDON_NAME)
         return
+    ids = reviews
 
     kept_scheduled = len(
         keep
@@ -285,13 +422,31 @@ def run() -> None:
     direction = "back" if days > 0 else "forward"
     subject_list = ", ".join(picked)
 
-    if not askUser(
+    plural = "s" if abs(days) != 1 else ""
+    detail = [
         f"Keep {subject_list} exactly where it is — {kept_scheduled:,} "
-        f"scheduled cards — and push the other {len(ids):,} "
-        f"{direction} by {abs(days)} day{'s' if abs(days) != 1 else ''}?\n\n"
+        "scheduled cards — and clear everything else off tomorrow?",
+        "",
+        f"· {len(reviews):,} review cards pushed {direction} {abs(days)} "
+        f"day{plural}",
+    ]
+    if learning:
+        detail.append(f"· {len(learning):,} learning cards pushed with them")
+    if new:
+        detail.append(
+            f"· {len(new):,} new cards from other subjects held back "
+            "(suspended, and released with one menu click afterwards)"
+        )
+    detail += [
+        "",
         "Only due dates move. Intervals, ease and FSRS memory state are left "
-        "alone.\n\nA backup is taken first, and Ctrl/Cmd+Z undoes the whole "
-        "thing in one step.",
+        "alone.",
+        "",
+        "A backup is taken first, and Ctrl/Cmd+Z undoes the whole thing in "
+        "one step.",
+    ]
+    if not askUser(
+        "\n".join(detail),
         defaultno=True,
         title=ADDON_NAME,
     ):
@@ -300,8 +455,17 @@ def run() -> None:
     def done(result: Result) -> None:
         mw.reset()
         lines = [
-            f"Moved {result.moved:,} cards {direction} by {abs(days)} "
+            f"Moved {result.moved:,} review cards {direction} by {abs(days)} "
             f"day{'s' if abs(days) != 1 else ''}.",
+        ]
+        if result.learning:
+            lines.append(f"Moved {result.learning:,} learning cards with them.")
+        if result.held_new:
+            lines.append(
+                f"Held back {result.held_new:,} new cards from other subjects "
+                "— release them with Tools → Exam Focus: Release Held Cards."
+            )
+        lines += [
             "",
             f"{subject_list} stayed put — {kept_scheduled:,} cards still due "
             "on their original days.",
@@ -317,7 +481,7 @@ def run() -> None:
 
     QueryOp(
         parent=mw,
-        op=lambda col: apply_shift(col, ids, days, conf),
+        op=lambda col: apply_shift(col, reviews, learning, new, days, conf),
         success=done,
     ).with_progress("Clearing the decks…").run_in_background()
 
@@ -325,3 +489,7 @@ def run() -> None:
 action = QAction(f"{ADDON_NAME}…", mw)
 qconnect(action.triggered, run)
 mw.form.menuTools.addAction(action)
+
+release_action = QAction(f"{ADDON_NAME}: Release Held Cards", mw)
+qconnect(release_action.triggered, release_held)
+mw.form.menuTools.addAction(release_action)
