@@ -84,7 +84,25 @@ def write_cards(col: Collection, cards: list) -> None:
             col.update_card(card)
 
 
-def shift_ids(col: Collection, ids: list[int], delta: int, progress) -> None:
+def merge_undo(col: Collection, undo_pos):
+    """Fold the work so far into our single undo entry.
+
+    Anki's undo queue only holds a few dozen operations. A large shift writes
+    in many batches, which would evict the custom entry before the end and make
+    the final merge fail with "target undo op not found" — after every card had
+    already moved. Merging as we go keeps the queue short, and a failure here
+    costs tidy undo grouping, never the work itself.
+    """
+    if undo_pos is None:
+        return None
+    try:
+        col.merge_undo_entries(undo_pos)
+        return undo_pos
+    except Exception:
+        return None
+
+
+def shift_ids(col: Collection, ids: list[int], delta: int, progress, undo_pos=None):
     for start in range(0, len(ids), CHUNK):
         cards = [col.get_card(cid) for cid in ids[start : start + CHUNK]]
         for card in cards:
@@ -94,7 +112,9 @@ def shift_ids(col: Collection, ids: list[int], delta: int, progress) -> None:
             if card.odid and card.odue:
                 card.odue += delta
         write_cards(col, cards)
+        undo_pos = merge_undo(col, undo_pos)
         progress(len(cards))
+    return undo_pos
 
 
 def take_day_off(col: Collection, days: int, conf: dict) -> Result:
@@ -140,11 +160,11 @@ def take_day_off(col: Collection, days: int, conf: dict) -> Result:
     except AttributeError:  # pragma: no cover - older API
         pass
 
-    shift_ids(col, scheduled_ids, days, progress)
-    shift_ids(col, intraday_ids, days * SECONDS_PER_DAY, progress)
-
-    if undo_pos is not None:
-        col.merge_undo_entries(undo_pos)
+    undo_pos = shift_ids(col, scheduled_ids, days, progress, undo_pos)
+    undo_pos = shift_ids(
+        col, intraday_ids, days * SECONDS_PER_DAY, progress, undo_pos
+    )
+    merge_undo(col, undo_pos)
 
     result.shifted = len(scheduled_ids)
     result.intraday = len(intraday_ids)

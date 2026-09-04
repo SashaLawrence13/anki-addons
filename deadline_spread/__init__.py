@@ -168,6 +168,24 @@ def write_cards(col: Collection, cards: list) -> None:
             col.update_card(card)
 
 
+def merge_undo(col: Collection, undo_pos):
+    """Fold the work so far into our single undo entry.
+
+    Anki's undo queue only holds a few dozen operations. A large shift writes
+    in many batches, which would evict the custom entry before the end and make
+    the final merge fail with "target undo op not found" — after every card had
+    already moved. Merging as we go keeps the queue short, and a failure here
+    costs tidy undo grouping, never the work itself.
+    """
+    if undo_pos is None:
+        return None
+    try:
+        col.merge_undo_entries(undo_pos)
+        return undo_pos
+    except Exception:
+        return None
+
+
 def apply_plan(col: Collection, plan: Plan, conf: dict) -> Result:
     result = Result()
 
@@ -200,6 +218,7 @@ def apply_plan(col: Collection, plan: Plan, conf: dict) -> Result:
             if card.odid and card.odue:
                 card.odue = target
         write_cards(col, cards)
+        undo_pos = merge_undo(col, undo_pos)
         done += len(cards)
 
         def update(done: int = done) -> None:
@@ -211,8 +230,7 @@ def apply_plan(col: Collection, plan: Plan, conf: dict) -> Result:
 
         mw.taskman.run_on_main(update)
 
-    if undo_pos is not None:
-        col.merge_undo_entries(undo_pos)
+    merge_undo(col, undo_pos)
 
     result.moved = total
     return result
