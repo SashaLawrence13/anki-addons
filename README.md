@@ -25,6 +25,7 @@ or paste that URL into any assistant that can browse, and ask it to follow the f
 | [Card Chat](#card-chat) | Ask Claude about the card you're looking at, without leaving Anki |
 | [Take a Day Off](#take-a-day-off) | Slide your whole schedule forward so time off costs nothing |
 | [Exam Focus](#exam-focus) | Keep one subject due and push every other subject back |
+| [Rebalance Subjects](#rebalance-subjects) | Thin out a unit that is burying you, across a window you choose |
 | [Image Blur Control](#image-blur-control) | Unblur images a deck ships blurred, without editing note types |
 | [Weak Topic Drill](#weak-topic-drill) | NBME-style questions on whatever you're failing today |
 | [Spread to a Deadline](#spread-to-a-deadline) | Fan a backlog out evenly over the days before a deadline |
@@ -165,6 +166,40 @@ in filtered decks keep their place there and have their home-deck date moved
 instead. Best run after you finish today's reviews — cards move by date, so
 anything still sitting on today would land on tomorrow. Backs up first, one undo
 step, and a negative number puts it back.
+
+## Rebalance Subjects
+
+Study a big unit in a burst and FSRS schedules it back at you in a burst. Months
+later cardiology is 150 cards a day while you're trying to learn pulmonology.
+
+**Tools → Rebalance Subjects…** Tick the subjects that are burying you —
+**Select all** and **Deselect all** are there for doing the whole collection —
+pick a window, and their cards move onto the quietest days inside it.
+
+Two rules keep it honest. **No card is ever moved earlier**, because pulling
+reviews forward adds work, which is the opposite of the point. And **no card is
+delayed past its own interval** — a card on a three-day interval moves three
+days, not thirty. Delay a card far past its interval and you aren't
+rescheduling it, you're forgetting it.
+
+On a real collection, spreading cardiology over 30 days:
+
+| | +1 | +2 | +3 | +4 | +5 | +6 | +7 |
+|---|---|---|---|---|---|---|---|
+| **before** | 552 | 501 | 403 | 366 | 363 | 356 | 342 |
+| **after** | 405 | 358 | 295 | 294 | 294 | 294 | 289 |
+
+Those totals include every other subject, which stays exactly where it is — so
+it's the load you'll actually meet, not just the part being moved.
+
+Cards are placed least-flexible-first: the ones with the narrowest choice of day
+go while the calendar is still empty. Ordering by due date instead lets late
+cards pile against the end of the window — on a whole-collection rebalance
+that's the difference between a flat 220 a day and a wall of 468 on the final
+day.
+
+Only due dates move; intervals, ease and FSRS memory state are untouched. Backs
+up first, one undo step.
 
 ## Image Blur Control
 

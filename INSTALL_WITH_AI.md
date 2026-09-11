@@ -30,7 +30,7 @@ Ground rules either way:
    Never ask them to make an account or install git. Route B needs neither.
 2. **Anki must be fully quit before any file is copied.** Anki rewrites add-on
    state when it exits and will silently overwrite what you just installed.
-3. **Don't install all twelve.** Ask first (Phase 1). One is a debugging tool
+3. **Don't install all thirteen.** Ask first (Phase 1). One is a debugging tool
    nobody should install casually; three need extra setup to do anything.
 4. **Verify before declaring success** (Phase 5). A broken add-on is
    indistinguishable from a working one until Anki restarts.
@@ -43,6 +43,7 @@ Ground rules either way:
 |---|---|---|---|
 | `day_off` | Take a Day Off | Slides the whole review schedule forward N days, so time off doesn't create a catch-up pile | — |
 | `deadline_spread` | Spread to a Deadline | Fans an existing backlog evenly across the days before a date | — |
+| `subject_spread` | Rebalance Subjects | Thins out a subject whose reviews have bunched up, across a window you choose | Tags |
 | `exam_focus` | Exam Focus | Keeps the subjects your exam covers due and pushes every other subject back | Tags |
 | `study_companion` | Study Companion | Toolbar readout of real study time, XP, streak, finish estimate; auto-syncs when idle | — |
 | `blur_toggle` | Image Blur Control | Unblurs images that a shared deck ships blurred, without editing note types | — |
@@ -84,6 +85,7 @@ Describe the table above in your own words and let them choose. Guidance:
   `one_key_sync`.
 - **`blur_toggle`** if they use AnKing or any deck that ships blurred images.
 - **`exam_focus`** for anyone with subject-tagged decks and real exams.
+- **`subject_spread`** for anyone whose old unit is drowning their current one.
 - **`card_chat` and `nbme_drill`** need the Claude Code CLI. Only suggest them
   if the person already uses Claude Code or is happy to install it. Mention the
   privacy note in Phase 6 *before* they choose, not after.
@@ -198,6 +200,7 @@ error. Then check them individually:
 | Suspend New & Learning | Tools → Suspend New & Learning… |
 | Image Blur Control | Tools → Image Blur Control… |
 | Exam Focus | Tools → Exam Focus… |
+| Rebalance Subjects | Tools → Rebalance Subjects… |
 | Weak Topic Drill | Tools → Drill My Weak Topics… |
 | Study Companion | A live stats item in the top toolbar |
 | Topic Stats | A "Topic performance" table on the deck screen |
@@ -230,8 +233,8 @@ walkthrough at `card_chat/INSTALL_WITH_CLAUDE.md` in this repository.
 > accuracy percentages, not cards. Fine for public decks; their call if their
 > cards hold personal or patient information.
 
-**Topic Stats, Weak Topic Drill and Exam Focus** all read subjects from a tag
-hierarchy and ship defaults aimed at AnKing Step 1/Step 2 v12. For any other tagging scheme,
+**Topic Stats, Weak Topic Drill, Exam Focus and Rebalance Subjects** all read
+subjects from a tag hierarchy and ship defaults aimed at AnKing Step 1/Step 2 v12. For any other tagging scheme,
 set `tag_prefixes` to `[]` to rank raw tags, or supply their own prefixes.
 
 **Image Blur Control** defaults to `off`, meaning blurred images are simply
