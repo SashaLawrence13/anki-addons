@@ -174,7 +174,11 @@ later cardiology is 150 cards a day while you're trying to learn pulmonology.
 
 **Tools → Rebalance Subjects…** Tick the subjects that are burying you —
 **Select all** and **Deselect all** are there for doing the whole collection —
-pick a window, and their cards move onto the quietest days inside it.
+pick a date range, and their cards move onto the quietest days inside it.
+
+The window is two dates rather than a length, so it can start later than today:
+*"put cardiology into October, once this unit is done."* Preset buttons for
+2 weeks, 1 month and 3 months fill in the end date.
 
 Two rules keep it honest. **No card is ever moved earlier**, because pulling
 reviews forward adds work, which is the opposite of the point. And **no card is
@@ -197,6 +201,13 @@ go while the calendar is still empty. Ordering by due date instead lets late
 cards pile against the end of the window — on a whole-collection rebalance
 that's the difference between a flat 220 a day and a wall of 468 on the final
 day.
+
+Ticking every subject flattens the whole collection: on this one it turns a
+552-card spike into a dead-level 220 a day for a month.
+
+A window starting in the future won't take everything, and the confirmation
+says so: cards whose interval can't stretch that far stay exactly where they
+are, counted for you rather than quietly dragged along.
 
 Only due dates move; intervals, ease and FSRS memory state are untouched. Backs
 up first, one undo step.

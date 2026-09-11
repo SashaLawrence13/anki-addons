@@ -112,59 +112,85 @@ def cards_in(bases: set[str]) -> set[int]:
 @dataclass
 class Plan:
     targets: dict[int, int] = field(default_factory=dict)
+    start: int = 0
     days: int = 0
     moving: int = 0
     before: list[int] = field(default_factory=list)
     after: list[int] = field(default_factory=list)
     max_delay: int = 0
     capped: int = 0
+    # Cards the interval rule refuses to drag as far as the window.
+    unreachable: int = 0
+    # Cards due before the window that get scheduled into it.
+    pulled_in: int = 0
 
 
-def build_plan(col: Collection, chosen: set[int], days: int, conf: dict) -> Plan:
+def build_plan(
+    col: Collection, chosen: set[int], start: int, end: int, conf: dict
+) -> Plan:
+    """Fit the chosen subjects' cards into the window, flattest-first.
+
+    `start` and `end` are absolute Anki day numbers, inclusive.
+    """
     today = col.sched.today
-    last = today + days - 1
+    days = end - start + 1
     cap = bool(conf.get("cap_delay_at_interval", True))
 
     rows = col.db.all(
         f"select id, due, ivl, odid, odue from cards where queue in {DAY_QUEUES}"
     )
 
-    moving: list[tuple[int, int, int]] = []
+    plan = Plan(start=start, days=days)
     fixed = [0] * days
     before = [0] * days
+    ranges = []
 
     for cid, due, ivl, odid, odue in rows:
         # A card in a filtered deck keeps its position in `due`; the real date
         # it returns to lives in `odue`.
         eff = odue if odid else due
-        if eff is None or eff > last:
+        if eff is None:
             continue
-        slot = max(eff, today) - today
-        if 0 <= slot < days:
-            before[slot] += 1
-        if cid in chosen:
-            moving.append((cid, eff, ivl or 0))
-        elif 0 <= slot < days:
-            fixed[slot] += 1
+        slot = eff - start
+        inside = 0 <= slot < days
 
-    plan = Plan(days=days, moving=len(moving))
+        if cid not in chosen:
+            if inside:
+                before[slot] += 1
+                fixed[slot] += 1
+            continue
+
+        # Already past the window: nothing to do with it.
+        if eff > end:
+            continue
+
+        # Never earlier than it is now, never before the window, never in the
+        # past; and never past its own interval when the cap is on.
+        lo = max(eff, start, today)
+        hi = min(end, eff + max(ivl, 1)) if cap else end
+
+        if hi < lo:
+            # The interval rule won't stretch this card as far as the window,
+            # so it stays where it is and counts as load we cannot move.
+            plan.unreachable += 1
+            if inside:
+                before[slot] += 1
+                fixed[slot] += 1
+            continue
+
+        if inside:
+            before[slot] += 1
+        else:
+            plan.pulled_in += 1
+        if hi < end:
+            plan.capped += 1
+        ranges.append((cid, eff, lo - start, hi - start))
+
     plan.before = before
-    if not moving:
+    plan.moving = len(ranges)
+    if not ranges:
         plan.after = list(before)
         return plan
-
-    # Work out each card's legal range first: no earlier than it is now, and
-    # no later than its own interval allows.
-    ranges = []
-    for cid, eff, ivl in moving:
-        lo = max(eff, today) - today
-        hi = (
-            min(days - 1, (eff + max(ivl, 1)) - today) if cap else days - 1
-        )
-        hi = max(hi, lo)
-        if hi < days - 1:
-            plan.capped += 1
-        ranges.append((cid, eff, lo, hi))
 
     # Least flexible first. Placing the cards with the narrowest choice while
     # the calendar is still empty leaves the roomy ones to fill whatever gaps
@@ -178,7 +204,7 @@ def build_plan(col: Collection, chosen: set[int], days: int, conf: dict) -> Plan
         # The quietest day it is allowed to land on; ties go to the earliest.
         best = min(range(lo, hi + 1), key=lambda d: (load[d], d))
         load[best] += 1
-        target = today + best
+        target = start + best
         plan.targets[cid] = target
         plan.max_delay = max(plan.max_delay, target - eff)
 
@@ -315,15 +341,33 @@ class RebalanceDialog(QDialog):
         layout.addWidget(self.list, 1)
 
         form = QFormLayout()
-        self.days = QSpinBox()
-        self.days.setRange(2, 365)
-        self.days.setValue(int(conf["days"]))
-        self.days.setSuffix(" days")
-        qconnect(self.days.valueChanged, self.update_until)
-        form.addRow("Spread across the next:", self.days)
-        self.until = QLabel()
-        form.addRow("", self.until)
+        today = QDate.currentDate()
+        self.start = QDateEdit(today)
+        self.start.setCalendarPopup(True)
+        self.start.setMinimumDate(today)
+        qconnect(self.start.dateChanged, self.on_start_changed)
+        form.addRow("Spread from:", self.start)
+
+        self.end = QDateEdit(today.addDays(max(int(conf["days"]), 2) - 1))
+        self.end.setCalendarPopup(True)
+        self.end.setMinimumDate(today.addDays(1))
+        qconnect(self.end.dateChanged, self.update_span)
+        form.addRow("through:", self.end)
+
+        self.span = QLabel()
+        form.addRow("", self.span)
         layout.addLayout(form)
+
+        presets = QHBoxLayout()
+        for label, length in (("2 weeks", 14), ("1 month", 30), ("3 months", 90)):
+            button = QPushButton(label)
+            qconnect(
+                button.clicked,
+                lambda _=False, n=length: self.set_span(n),
+            )
+            presets.addWidget(button)
+        presets.addStretch(1)
+        layout.addLayout(presets)
 
         self.cap = QCheckBox("Never delay a card past its own interval")
         self.cap.setChecked(bool(conf.get("cap_delay_at_interval", True)))
@@ -342,16 +386,34 @@ class RebalanceDialog(QDialog):
         qconnect(box.rejected, self.reject)
         layout.addWidget(box)
 
-        self.update_until()
+        self.update_span()
 
     def set_all(self, checked: bool) -> None:
         state = Qt.CheckState.Checked if checked else Qt.CheckState.Unchecked
         for i in range(self.list.count()):
             self.list.item(i).setCheckState(state)
 
-    def update_until(self) -> None:
-        end = QDate.currentDate().addDays(self.days.value() - 1)
-        self.until.setText(f"through {end.toString('ddd, MMM d')}")
+    def set_span(self, length: int) -> None:
+        """A preset counts from the chosen start, not from today."""
+        self.end.setDate(self.start.date().addDays(length - 1))
+
+    def on_start_changed(self) -> None:
+        start = self.start.date()
+        self.end.setMinimumDate(start.addDays(1))
+        if self.end.date() <= start:
+            self.end.setDate(start.addDays(1))
+        self.update_span()
+
+    def update_span(self) -> None:
+        days = self.start.date().daysTo(self.end.date()) + 1
+        start = self.start.date()
+        note = ""
+        if start > QDate.currentDate():
+            note = "  ·  starts in the future, so cards due before then move into it"
+        self.span.setText(f"{days} days{note}")
+
+    def window(self) -> tuple[QDate, QDate]:
+        return self.start.date(), self.end.date()
 
     def chosen(self) -> list[str]:
         return [
@@ -366,18 +428,19 @@ def profile(values: list[int], width: int = 10) -> str:
     return "  ".join(f"{v:,}" for v in values[:width])
 
 
-def describe(plan: Plan, picked: list[str]) -> str:
+def describe(plan: Plan, picked: list[str], start: QDate, end: QDate) -> str:
     before_peak = max(plan.before) if plan.before else 0
     after_peak = max(plan.after) if plan.after else 0
 
     lines = [
-        f"Rebalance {plan.moving:,} cards from "
-        f"{', '.join(picked)} across the next {plan.days} days?",
+        f"Rebalance {plan.moving:,} cards from {', '.join(picked)} across "
+        f"{start.toString('MMM d')} – {end.toString('MMM d')} "
+        f"({plan.days} days)?",
         "",
         f"Busiest day now:        {before_peak:,} cards",
         f"Busiest day afterwards: {after_peak:,} cards",
         "",
-        "Daily totals, next 10 days:",
+        f"Daily totals from {start.toString('MMM d')}:",
         f"  now:   {profile(plan.before)}",
         f"  after: {profile(plan.after)}",
         "",
@@ -385,9 +448,21 @@ def describe(plan: Plan, picked: list[str]) -> str:
         "it is — so this is the load you will actually meet, not just the "
         "part being moved.",
     ]
+    if plan.pulled_in:
+        lines.append(
+            f"\n{plan.pulled_in:,} cards due before "
+            f"{start.toString('MMM d')} are scheduled into the window."
+        )
+    if plan.unreachable:
+        lines.append(
+            f"{plan.unreachable:,} cards stay where they are: reaching the "
+            "window would delay them past their own interval."
+        )
     if plan.max_delay:
-        lines.append(f"\nNo card moves earlier. The largest delay is "
-                     f"{plan.max_delay} days.")
+        lines.append(
+            f"\nNo card moves earlier. The largest delay is "
+            f"{plan.max_delay} days."
+        )
     lines += [
         "",
         "Intervals, ease and FSRS memory state are untouched — only due dates "
@@ -421,10 +496,17 @@ def run() -> None:
         return
 
     picked = dialog.chosen()
-    days = dialog.days.value()
-    conf["days"] = days
+    start_date, end_date = dialog.window()
+    conf["days"] = start_date.daysTo(end_date) + 1
     conf["cap_delay_at_interval"] = dialog.cap.isChecked()
     save_config(conf)
+
+    # Anki counts days from the collection's creation, so translate the chosen
+    # calendar dates into that numbering.
+    now = QDate.currentDate()
+    today = mw.col.sched.today
+    start_day = today + now.daysTo(start_date)
+    end_day = today + now.daysTo(end_date)
 
     if not picked:
         showInfo("Pick at least one subject.", title=ADDON_NAME)
@@ -435,17 +517,28 @@ def run() -> None:
         bases |= found[name]
     chosen = cards_in(bases)
 
-    plan = build_plan(mw.col, chosen, days, conf)
+    plan = build_plan(mw.col, chosen, start_day, end_day, conf)
     if not plan.moving:
+        extra = ""
+        if plan.unreachable:
+            extra = (
+                f"\n\n{plan.unreachable:,} cards could only reach that window "
+                "by being delayed past their own interval, so they were left "
+                "alone. A window closer to today would take them."
+            )
         showInfo(
-            f"Nothing from {', '.join(picked)} is due in the next {days} "
-            "days, so there is nothing to spread.\n\nWiden the window, or "
-            "pick a subject that is actually crowding you.",
+            f"Nothing from {', '.join(picked)} can move into "
+            f"{start_date.toString('MMM d')} – {end_date.toString('MMM d')}."
+            + extra,
             title=ADDON_NAME,
         )
         return
 
-    if not askUser(describe(plan, picked), defaultno=True, title=ADDON_NAME):
+    if not askUser(
+        describe(plan, picked, start_date, end_date),
+        defaultno=True,
+        title=ADDON_NAME,
+    ):
         return
 
     def done(result: Result) -> None:

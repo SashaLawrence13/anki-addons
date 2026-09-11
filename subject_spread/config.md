@@ -5,9 +5,15 @@ back at you in a burst. Months later that one subject is 150 cards a day while
 everything else is 40.
 
 Tick the subjects that are burying you — **Select all** and **Deselect all**
-are there for doing the whole collection — choose how many days to spread them
-over, and their cards are moved onto the quietest days in that window, so the
-daily total flattens instead of spiking.
+are there for doing the whole collection — pick the date range to spread them
+over, and their cards are moved onto the quietest days inside it, so the daily
+total flattens instead of spiking.
+
+The range is two dates, not just a length, so the window can start later than
+today: *"put cardiology into October, once this unit is done."* Buttons for
+2 weeks, 1 month and 3 months set the end date from whatever start you chose.
+When a window starts in the future, cards due before it are scheduled into it,
+and the confirmation says how many.
 
 Two rules keep it honest:
 
@@ -18,9 +24,14 @@ Two rules keep it honest:
   are not rescheduling it, you are forgetting it. Untick
   `cap_delay_at_interval` to let the load flatten further at that cost.
 
+This second rule is why a distant window may not take everything: a card whose
+interval cannot stretch that far is left exactly where it is, and the
+confirmation counts them for you.
+
 Settings:
 
-- `days`: the window to spread across. Rewritten each run.
+- `days`: how long the default window is when the dialog opens. Rewritten
+  each run to the length you last used; the start always defaults to today.
 - `cap_delay_at_interval`: the interval rule above. Leave it on.
 - `tag_prefixes`: the tag hierarchies subjects are read from — the same shape
   Exam Focus and Topic Stats use, so a subject means the same thing
