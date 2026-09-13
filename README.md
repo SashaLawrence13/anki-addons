@@ -27,6 +27,7 @@ or paste that URL into any assistant that can browse, and ask it to follow the f
 | [Exam Focus](#exam-focus) | Keep one subject due and push every other subject back |
 | [Rebalance Subjects](#rebalance-subjects) | Thin out a unit that is burying you, across a window you choose |
 | [Image Blur Control](#image-blur-control) | Unblur images a deck ships blurred, without editing note types |
+| [One-by-One Reveal](#one-by-one-reveal) | Drive AnKing cloze one-by-one from a key or a controller button |
 | [Weak Topic Drill](#weak-topic-drill) | NBME-style questions on whatever you're failing today |
 | [Spread to a Deadline](#spread-to-a-deadline) | Fan a backlog out evenly over the days before a deadline |
 | [Study Companion](#study-companion) | Real study time, XP, streaks and a finish-time estimate in the toolbar |
@@ -224,6 +225,27 @@ them), **hover** (reveal while pointing), **click** (click to reveal, click to
 hide), and **keep** (leave the deck's blurring alone). Cycle them mid-review
 with <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>U</kbd>, or pick one in
 **Tools → Image Blur Control…**
+
+## One-by-One Reveal
+
+AnKing's Overhaul note type can reveal a card's clozes one at a time. Its
+shortcuts (**N**, and **,** for toggle all) are DOM listeners inside the card's
+webview, which quietly defeats two things that look like they should work:
+
+- Hint-revealing add-ons target `.hint` elements. Cloze one-by-one has none, so
+  they do nothing on these cards whatever key you bind.
+- Controller mappers that simulate a keypress send a synthetic Qt event to the
+  focused widget. It never becomes a DOM keydown, and never fires a QShortcut
+  either, because Qt's shortcut map only listens to real key events.
+
+So this doesn't pretend to type. It calls the card's own reveal function, and
+registers **Reveal Next**, **Reveal All Hints** and **Toggle All Cloze** with
+[Contanki](https://ankiweb.net/shared/info/1898790263) as real actions, so a
+controller button runs the same code the on-screen button runs. Keyboard
+shortcuts default to <kbd>Y</kbd> and <kbd>Shift</kbd>+<kbd>Y</kbd>; the card's
+own N and comma keep working.
+
+Only touches notes whose **One by one** field is filled.
 
 ## Weak Topic Drill
 
