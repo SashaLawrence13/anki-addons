@@ -7,7 +7,7 @@ meta.json
 # Add-on runtime data. Never commit this — it is the user's own study data.
 user_files/
 
-# Build output
-*.ankiaddon
+# Stray root builds; the shipped packages in dist/ are tracked on purpose.
+/*.ankiaddon
 
 .DS_Store

@@ -6,6 +6,33 @@ in case they're useful — no AnkiWeb listing, no support promises.
 
 Built and used against **Anki 25.07** on macOS with Qt6.
 
+## Easiest install: download one file, double-click it
+
+No GitHub account, no git, no terminal, and nothing for an AI to fetch. Click a
+link, then double-click the downloaded file — Anki installs it and asks you to
+restart.
+
+| Add-on | Download |
+|---|---|
+| Auto-Answer Good | [auto-answer-good.ankiaddon](https://github.com/SashaLawrence13/anki-addons/raw/main/dist/auto-answer-good.ankiaddon) |
+| Card Chat (Claude) | [card-chat-claude.ankiaddon](https://github.com/SashaLawrence13/anki-addons/raw/main/dist/card-chat-claude.ankiaddon) |
+| Exam Focus | [exam-focus.ankiaddon](https://github.com/SashaLawrence13/anki-addons/raw/main/dist/exam-focus.ankiaddon) |
+| Image Blur Control | [image-blur-control.ankiaddon](https://github.com/SashaLawrence13/anki-addons/raw/main/dist/image-blur-control.ankiaddon) |
+| One-Key Sync | [one-key-sync.ankiaddon](https://github.com/SashaLawrence13/anki-addons/raw/main/dist/one-key-sync.ankiaddon) |
+| One-by-One Reveal | [one-by-one-reveal.ankiaddon](https://github.com/SashaLawrence13/anki-addons/raw/main/dist/one-by-one-reveal.ankiaddon) |
+| Progress Debug (diagnostic) | [progress-debug-diagnostic.ankiaddon](https://github.com/SashaLawrence13/anki-addons/raw/main/dist/progress-debug-diagnostic.ankiaddon) |
+| Rebalance Subjects | [rebalance-subjects.ankiaddon](https://github.com/SashaLawrence13/anki-addons/raw/main/dist/rebalance-subjects.ankiaddon) |
+| Spread to a Deadline | [spread-to-a-deadline.ankiaddon](https://github.com/SashaLawrence13/anki-addons/raw/main/dist/spread-to-a-deadline.ankiaddon) |
+| Study Companion | [study-companion.ankiaddon](https://github.com/SashaLawrence13/anki-addons/raw/main/dist/study-companion.ankiaddon) |
+| Suspend New & Learning | [suspend-new-learning.ankiaddon](https://github.com/SashaLawrence13/anki-addons/raw/main/dist/suspend-new-learning.ankiaddon) |
+| Take a Day Off | [take-a-day-off.ankiaddon](https://github.com/SashaLawrence13/anki-addons/raw/main/dist/take-a-day-off.ankiaddon) |
+| Topic Stats | [topic-stats.ankiaddon](https://github.com/SashaLawrence13/anki-addons/raw/main/dist/topic-stats.ankiaddon) |
+| Weak Topic Drill | [weak-topic-drill.ankiaddon](https://github.com/SashaLawrence13/anki-addons/raw/main/dist/weak-topic-drill.ankiaddon) |
+
+If your browser opens the file as text instead of downloading it, right-click
+the link and choose **Save Link As**. If double-clicking doesn't open Anki, use
+*Tools → Add-ons → Install from file…* and pick the downloaded `.ankiaddon`.
+
 ## Never used GitHub? Let any AI assistant install these for you
 
 Download **[INSTALL_WITH_AI.md](INSTALL_WITH_AI.md)**, hand it to Claude, ChatGPT,
@@ -57,6 +84,7 @@ Or build an installable package and double-click it:
 
 ```bash
 ./build.sh day_off      # one add-on, or omit the name to build them all
+                        # packages land in dist/
 ```
 
 Settings live in *Tools → Add-ons → (select) → Config*.
