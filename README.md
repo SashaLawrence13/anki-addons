@@ -174,9 +174,12 @@ Take a Day Off clears the day completely; this clears everything except what
 you're being tested on. Tick several subjects if the exam covers several.
 
 Subjects are read from your tag hierarchy — on a real AnKing collection that's
-22 of them, Cardiology through Surgery — and grouped exactly the way Topic Stats
-groups them, so a subject means the same thing across all these add-ons. Not on
-AnKing? Set `tag_prefixes` to `[]` and each top-level tag becomes a subject.
+22 of them, Cardiology through Surgery. A subject matches its name as a tag
+segment **anywhere** in any tag tree, not just the first segment under one
+prefix: Pulmonology lives under `#Bootcamp`, `#Subjects::`, `#SketchyIM::`,
+`#OME::` and `#AK_Other::AnKing_Image::`, and in Step 2 it sits one level below
+Medicine. Matching only the first segment found 1,535 of its 2,803 cards and
+pushed the rest away as "some other subject".
 
 Anki's deck screen adds three things together, so a clean exam day means
 handling all three. Review cards move by date. Learning cards hold a timestamp

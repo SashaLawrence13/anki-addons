@@ -50,3 +50,17 @@ Only due dates move. Intervals, ease and FSRS memory state are never touched.
 New and suspended cards are left alone. A card in a filtered deck keeps its
 position there and has its home-deck date moved instead. The whole run is one
 undo step.
+
+**How a subject is matched.** A subject matches any tag with that name as a
+segment, *anywhere* in the tag, in any tag tree. This matters more than it
+sounds: on a real AnKing collection, Pulmonology lives under `#Bootcamp` but
+also under `#Subjects::`, `#SketchyIM::`, `#OME::` and
+`#AK_Other::AnKing_Image::`, and in the Step 2 tree it sits one level *below*
+Medicine. Matching only the first segment under one or two prefixes found 1,535
+of its 2,803 cards — the rest were treated as some other subject and pushed
+away. Ordering prefixes like `03_Pulmonology` are ignored, so they match too.
+
+The flip side is unavoidable: a note tagged both Pulmonology and Medicine is
+genuinely a pulmonology note, and it stays. It will look like a stray when it
+comes up on a pulmonology-only day, so the confirmation tells you how many of
+the kept notes carry another subject's tag as well.

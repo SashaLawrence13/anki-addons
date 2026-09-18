@@ -95,16 +95,80 @@ def subjects(conf: dict) -> dict[str, set[str]]:
     return found
 
 
-def cards_in(bases: set[str]) -> set[int]:
-    """Every card whose note carries one of these tags, or a child of it."""
-    if not bases:
+def cards_for_subjects(names: set[str]) -> set[int]:
+    """Cards whose note carries one of these subject names as a tag segment.
+
+    Matching only the first segment under a couple of fixed prefixes misses
+    most of a subject. On a real AnKing collection, Pulmonology also lives
+    under #Subjects::, #SketchyIM::, #OME:: and #AK_Other::AnKing_Image::, and
+    in the Step 2 tree it sits one level down beneath Medicine — 1,082 of its
+    2,229 notes are invisible to a depth-1 prefix rule. Comparing the cleaned
+    segment name anywhere in any tag finds all of them, and "03_Pulmonology"
+    and "Pulmonology" land in the same place.
+    """
+    if not names:
         return set()
-    terms = []
-    for base in sorted(bases):
-        safe = base.replace('"', '\\"')
-        terms.append(f'"tag:{safe}"')
-        terms.append(f'"tag:{safe}::*"')
-    return set(mw.col.find_cards(" OR ".join(terms)))
+
+    cache: dict[str, str] = {}
+
+    def cleaned(seg: str) -> str:
+        value = cache.get(seg)
+        if value is None:
+            value = clean_segment(seg)
+            cache[seg] = value
+        return value
+
+    nids = set()
+    for nid, tagstr in mw.col.db.all("select id, tags from notes"):
+        for tag in tagstr.split():
+            if any(cleaned(seg) in names for seg in tag.split("::")):
+                nids.add(nid)
+                break
+    if not nids:
+        return set()
+    return {
+        cid
+        for cid, nid in mw.col.db.all("select id, nid from cards")
+        if nid in nids
+    }
+
+
+def overlap_count(names: set[str], keep: set[int]) -> int:
+    """How many kept notes also carry a *different* subject.
+
+    Worth surfacing: a card tagged both Pulmonology and Medicine is genuinely
+    a pulmonology card, but it looks like a stray when it turns up in a
+    pulmonology-only day.
+    """
+    all_names = set(subjects(get_config()))
+    others = all_names - names
+    if not others:
+        return 0
+    cache: dict[str, str] = {}
+
+    def cleaned(seg: str) -> str:
+        value = cache.get(seg)
+        if value is None:
+            value = clean_segment(seg)
+            cache[seg] = value
+        return value
+
+    kept_nids = {
+        nid
+        for cid, nid in mw.col.db.all("select id, nid from cards")
+        if cid in keep
+    }
+    count = 0
+    for nid, tagstr in mw.col.db.all("select id, tags from notes"):
+        if nid not in kept_nids:
+            continue
+        if any(
+            cleaned(seg) in others
+            for tag in tagstr.split()
+            for seg in tag.split("::")
+        ):
+            count += 1
+    return count
 
 
 # The shift
@@ -164,25 +228,13 @@ def plan_shift(col: Collection, keep: set[int], conf: dict):
     if conf.get("hold_other_new", True):
         # Only cards inside the subject taxonomy. An unrelated deck — guitar
         # practice, a language deck — is nobody's exam subject and is left be.
-        in_subjects = tagged_cards(conf)
+        in_subjects = cards_for_subjects(set(subjects(conf)))
         new = [
             cid
             for cid in col.db.list("select id from cards where queue = 0")
             if cid not in keep and (not in_subjects or cid in in_subjects)
         ]
     return reviews, learning, new
-
-
-def tagged_cards(conf: dict) -> set[int]:
-    """Every card whose note sits anywhere under the configured prefixes."""
-    prefixes = conf.get("tag_prefixes") or []
-    if not prefixes:
-        return set()
-    terms = []
-    for prefix in prefixes:
-        safe = prefix.replace('"', '\\"')
-        terms.append(f'"tag:{safe}::*"')
-    return set(mw.col.find_cards(" OR ".join(terms)))
 
 
 def merge_undo(col: Collection, undo_pos):
@@ -423,10 +475,7 @@ def run() -> None:
     conf["hold_other_new"] = dialog.hold_new.isChecked()
     save_config(conf)
 
-    bases: set[str] = set()
-    for name in picked:
-        bases |= found[name]
-    keep = cards_in(bases)
+    keep = cards_for_subjects(set(picked))
     reviews, learning, new = plan_shift(mw.col, keep, conf)
 
     if not (reviews or learning or new):
@@ -456,6 +505,14 @@ def run() -> None:
             f"· {len(new):,} new cards from other subjects held back "
             "(suspended, and released with one menu click afterwards)"
         )
+    shared = overlap_count(set(picked), keep)
+    if shared:
+        detail += [
+            "",
+            f"Note: {shared:,} of the kept notes also carry another subject's "
+            "tag. They are genuinely part of what you picked, but they will "
+            "look like other subjects when they come up.",
+        ]
     detail += [
         "",
         "Only due dates move. Intervals, ease and FSRS memory state are left "

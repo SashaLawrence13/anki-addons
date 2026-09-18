@@ -94,15 +94,42 @@ def subjects(conf: dict) -> dict[str, set[str]]:
     return found
 
 
-def cards_in(bases: set[str]) -> set[int]:
-    if not bases:
+def cards_for_subjects(names: set[str]) -> set[int]:
+    """Cards whose note carries one of these subject names as a tag segment.
+
+    Matching only the first segment under a couple of fixed prefixes misses
+    most of a subject. On a real AnKing collection, Pulmonology also lives
+    under #Subjects::, #SketchyIM::, #OME:: and #AK_Other::AnKing_Image::, and
+    in the Step 2 tree it sits one level down beneath Medicine — roughly half
+    its notes are invisible to a depth-1 prefix rule. Comparing the cleaned
+    segment name anywhere in any tag finds all of them, and "03_Pulmonology"
+    and "Pulmonology" land in the same place.
+    """
+    if not names:
         return set()
-    terms = []
-    for base in sorted(bases):
-        safe = base.replace('"', '\\"')
-        terms.append(f'"tag:{safe}"')
-        terms.append(f'"tag:{safe}::*"')
-    return set(mw.col.find_cards(" OR ".join(terms)))
+
+    cache: dict[str, str] = {}
+
+    def cleaned(seg: str) -> str:
+        value = cache.get(seg)
+        if value is None:
+            value = clean_segment(seg)
+            cache[seg] = value
+        return value
+
+    nids = set()
+    for nid, tagstr in mw.col.db.all("select id, tags from notes"):
+        for tag in tagstr.split():
+            if any(cleaned(seg) in names for seg in tag.split("::")):
+                nids.add(nid)
+                break
+    if not nids:
+        return set()
+    return {
+        cid
+        for cid, nid in mw.col.db.all("select id, nid from cards")
+        if nid in nids
+    }
 
 
 # Planning
@@ -512,10 +539,7 @@ def run() -> None:
         showInfo("Pick at least one subject.", title=ADDON_NAME)
         return
 
-    bases: set[str] = set()
-    for name in picked:
-        bases |= found[name]
-    chosen = cards_in(bases)
+    chosen = cards_for_subjects(set(picked))
 
     plan = build_plan(mw.col, chosen, start_day, end_day, conf)
     if not plan.moving:
