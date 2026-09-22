@@ -201,48 +201,24 @@ step, and a negative number puts it back.
 
 ## Rebalance Subjects
 
-Study a big unit in a burst and FSRS schedules it back at you in a burst. Months
-later cardiology is 150 cards a day while you're trying to learn pulmonology.
+Study a big unit in a burst and FSRS schedules it back at you in a burst.
+**Tools → Rebalance Subjects…** searches your tags, lists the branches that
+match, and moves everything under the ones you tick onto the quietest days in
+a date range you choose — so the daily total flattens instead of spiking.
 
-**Tools → Rebalance Subjects…** Tick the subjects that are burying you —
-**Select all** and **Deselect all** are there for doing the whole collection —
-pick a date range, and their cards move onto the quietest days inside it.
+Selection is by **tag branch**, not by subject name. Searching `pulm` collapses
+682 individual tags into 96 rows with card counts, so you can take
+`#Bootcamp::Pulmonology` and leave Gastroenterology's `Hepatopulmonary_Syndrome`
+behind. Ticks persist across searches, so you can gather branches from several.
 
-The window is two dates rather than a length, so it can start later than today:
-*"put cardiology into October, once this unit is done."* Preset buttons for
-2 weeks, 1 month and 3 months fill in the end date.
-
-Two rules keep it honest. **No card is ever moved earlier**, because pulling
-reviews forward adds work, which is the opposite of the point. And **no card is
-delayed past its own interval** — a card on a three-day interval moves three
-days, not thirty. Delay a card far past its interval and you aren't
-rescheduling it, you're forgetting it.
-
-On a real collection, spreading cardiology over 30 days:
-
-| | +1 | +2 | +3 | +4 | +5 | +6 | +7 |
-|---|---|---|---|---|---|---|---|
-| **before** | 552 | 501 | 403 | 366 | 363 | 356 | 342 |
-| **after** | 405 | 358 | 295 | 294 | 294 | 294 | 289 |
-
-Those totals include every other subject, which stays exactly where it is — so
-it's the load you'll actually meet, not just the part being moved.
-
-Cards are placed least-flexible-first: the ones with the narrowest choice of day
-go while the calendar is still empty. Ordering by due date instead lets late
-cards pile against the end of the window — on a whole-collection rebalance
-that's the difference between a flat 220 a day and a wall of 468 on the final
-day.
-
-Ticking every subject flattens the whole collection: on this one it turns a
-552-card spike into a dead-level 220 a day for a month.
-
-A window starting in the future won't take everything, and the confirmation
-says so: cards whose interval can't stretch that far stay exactly where they
-are, counted for you rather than quietly dragged along.
+Two rules keep it honest: no card is ever moved **earlier** than it is now, and
+no card is delayed past **its own current interval** — a card on a three-day
+interval moves three days, not thirty. On a real 20k-card collection, levelling
+one subject took the busiest day from 552 cards to 405 without delaying a single
+card beyond its interval.
 
 Only due dates move; intervals, ease and FSRS memory state are untouched. Backs
-up first, one undo step.
+up first, lands as one undo step.
 
 ## Image Blur Control
 

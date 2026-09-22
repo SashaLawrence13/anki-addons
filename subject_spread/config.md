@@ -51,16 +51,25 @@ New and suspended cards are left alone. A card in a filtered deck keeps its
 position there and has its home-deck date moved instead. The whole run is one
 undo step.
 
-**How a subject is matched.** A subject matches any tag with that name as a
-segment, *anywhere* in the tag, in any tag tree. This matters more than it
-sounds: on a real AnKing collection, Pulmonology lives under `#Bootcamp` but
-also under `#Subjects::`, `#SketchyIM::`, `#OME::` and
-`#AK_Other::AnKing_Image::`, and in the Step 2 tree it sits one level *below*
-Medicine. Matching only the first segment under one or two prefixes found 1,535
-of its 2,803 cards — the rest were treated as some other subject and pushed
-away. Ordering prefixes like `03_Pulmonology` are ignored, so they match too.
+**Picking by tag, not by subject name.** The dialog searches your tags and
+lists *branches* — each match truncated at the segment that matched — so
+searching `pulm` on a real collection turns 682 individual tags into 96 rows
+like `#AK_Step1_v12::#Bootcamp::Pulmonology` (1,535 cards) and
+`#AK_Step2_v12::#SketchyIM::03_Pulmonology` (1,261 cards). Tick the ones you
+mean; everything at or below a ticked branch is included.
 
-The flip side is unavoidable: a note tagged both Pulmonology and Medicine is
-genuinely a pulmonology note, and it stays. It will look like a stray when it
-comes up on a pulmonology-only day, so the confirmation tells you how many of
-the kept notes carry another subject's tag as well.
+This exists because a subject *name* is too blunt. Matching the name against
+whole notes swept in anything cross-tagged with it — on this collection only
+317 of 2,229 pulmonology notes are pulmonology *alone* — and substring matching
+grabbed `Hepatopulmonary_Syndrome` from Gastroenterology and
+`Total_Anomalous_Pulmonary_Venous_Return` from Cardiology. Choosing branches
+excludes both outright.
+
+Ticks survive changing the search term, so you can gather branches across
+several searches; the counter by the buttons shows how many are held. **Select
+all shown** ticks only what the current search lists. Leave the search box
+empty for an overview of the top two levels of every tag tree.
+
+One honest limit: if a note genuinely carries a pulmonology tag *and* a surgery
+tag, ticking a pulmonology branch takes it. That is the note's own tagging, not
+the picker guessing.

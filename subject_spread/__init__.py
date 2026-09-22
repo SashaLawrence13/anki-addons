@@ -22,6 +22,7 @@ A backup is taken first and the whole run is one undo step.
 from __future__ import annotations
 
 import re
+from collections import Counter
 from dataclasses import dataclass, field
 
 from anki.collection import Collection
@@ -65,62 +66,74 @@ def clean_segment(seg: str) -> str:
     return re.sub(r"^\d+\s*", "", seg)
 
 
-def subjects(conf: dict) -> dict[str, set[str]]:
-    """Display name -> the raw tag bases that feed it.
+def all_tags() -> list[str]:
+    return list(mw.col.tags.all())
 
-    Grouped one level below the configured prefixes, which is the subject
-    level. Matches Exam Focus and Topic Stats, so a subject means the same
-    thing everywhere.
+
+def branches_for(term: str, tags: list[str]) -> list[str]:
+    """Tag prefixes, each truncated at its shallowest segment matching `term`.
+
+    A subject name is too blunt for a real collection: searching "pulm" the
+    naive way returns 682 individual tags, and matching a subject name against
+    whole notes drags in everything cross-tagged with it. Truncating at the
+    matching segment collapses those 682 into ~96 branches — one row per place
+    pulmonology actually lives — so you can take #Bootcamp::Pulmonology and
+    leave Gastroenterology's Hepatopulmonary_Syndrome behind.
+
+    With no search term, shows the top two levels as an overview.
     """
-    prefixes = conf.get("tag_prefixes") or []
-    found: dict[str, set[str]] = {}
-
-    for tag in mw.col.tags.all():
-        if prefixes:
-            for prefix in prefixes:
-                if tag == prefix or tag.startswith(prefix + "::"):
-                    rest = tag[len(prefix) :].lstrip(":")
-                    if not rest:
-                        break
-                    raw = rest.split("::")[0]
-                    found.setdefault(clean_segment(raw), set()).add(
-                        f"{prefix}::{raw}"
-                    )
-                    break
-        else:
-            top = tag.split("::")[0]
-            found.setdefault(clean_segment(top), set()).add(top)
-
-    return found
+    term = term.lower().strip()
+    found: set[str] = set()
+    for tag in tags:
+        segs = tag.split("::")
+        if not term:
+            found.add("::".join(segs[:2]))
+            continue
+        for i, seg in enumerate(segs):
+            if term in seg.lower():
+                found.add("::".join(segs[: i + 1]))
+                break
+    # Drop any branch that already sits inside another, so nothing is listed
+    # twice and ticking a parent can't double-count its child.
+    keep: list[str] = []
+    for branch in sorted(found, key=lambda s: (s.count("::"), s)):
+        if not any(branch.startswith(k + "::") for k in keep):
+            keep.append(branch)
+    return keep
 
 
-def cards_for_subjects(names: set[str]) -> set[int]:
-    """Cards whose note carries one of these subject names as a tag segment.
+def _prefixes(tag: str):
+    segs = tag.split("::")
+    for i in range(len(segs)):
+        yield "::".join(segs[: i + 1])
 
-    Matching only the first segment under a couple of fixed prefixes misses
-    most of a subject. On a real AnKing collection, Pulmonology also lives
-    under #Subjects::, #SketchyIM::, #OME:: and #AK_Other::AnKing_Image::, and
-    in the Step 2 tree it sits one level down beneath Medicine — roughly half
-    its notes are invisible to a depth-1 prefix rule. Comparing the cleaned
-    segment name anywhere in any tag finds all of them, and "03_Pulmonology"
-    and "Pulmonology" land in the same place.
-    """
-    if not names:
+
+def cards_per_branch(branches: list[str]) -> dict[str, int]:
+    """Exact card count per branch — a note under two child tags counts once."""
+    wanted = set(branches)
+    per = {b: 0 for b in branches}
+    cards = Counter(nid for (nid,) in mw.col.db.all("select nid from cards"))
+    for nid, tagstr in mw.col.db.all("select id, tags from notes"):
+        hit = set()
+        for tag in tagstr.split():
+            for pref in _prefixes(tag):
+                if pref in wanted:
+                    hit.add(pref)
+        if hit:
+            n = cards.get(nid, 0)
+            for pref in hit:
+                per[pref] += n
+    return per
+
+
+def cards_under(branches: set[str]) -> set[int]:
+    """Every card whose note carries a tag at or below one of these branches."""
+    if not branches:
         return set()
-
-    cache: dict[str, str] = {}
-
-    def cleaned(seg: str) -> str:
-        value = cache.get(seg)
-        if value is None:
-            value = clean_segment(seg)
-            cache[seg] = value
-        return value
-
     nids = set()
     for nid, tagstr in mw.col.db.all("select id, tags from notes"):
         for tag in tagstr.split():
-            if any(cleaned(seg) in names for seg in tag.split("::")):
+            if any(pref in branches for pref in _prefixes(tag)):
                 nids.add(nid)
                 break
     if not nids:
@@ -335,37 +348,50 @@ def apply_plan(col: Collection, plan: Plan, conf: dict) -> Result:
 
 
 class RebalanceDialog(QDialog):
-    def __init__(self, parent, names: list[str], conf: dict) -> None:
+    def __init__(self, parent, conf: dict) -> None:
         super().__init__(parent)
         self.setWindowTitle(ADDON_NAME)
-        self.resize(440, 560)
+        self.resize(720, 620)
+
+        self.tags = all_tags()
+        self.selected: set[str] = set()
 
         layout = QVBoxLayout(self)
         layout.addWidget(
             QLabel(
-                "Tick the subjects that are burying you. Their cards get\n"
-                "moved onto the quietest days in the window below, so the\n"
-                "daily total flattens out."
+                "Search your tags, then tick the branches that are burying "
+                "you.\nEverything under a ticked branch moves onto the "
+                "quietest days in the window."
             )
         )
 
+        self.search = QLineEdit()
+        self.search.setPlaceholderText(
+            "Search tags — e.g. pulm, cardio, renal (blank shows an overview)"
+        )
+        self.debounce = QTimer(self)
+        self.debounce.setSingleShot(True)
+        self.debounce.setInterval(250)
+        qconnect(self.debounce.timeout, self.refresh)
+        qconnect(self.search.textChanged, lambda _=None: self.debounce.start())
+        layout.addWidget(self.search)
+
         buttons = QHBoxLayout()
-        select_all = QPushButton("Select all")
+        select_all = QPushButton("Select all shown")
         clear_all = QPushButton("Deselect all")
         qconnect(select_all.clicked, lambda: self.set_all(True))
         qconnect(clear_all.clicked, lambda: self.set_all(False))
         buttons.addWidget(select_all)
         buttons.addWidget(clear_all)
         buttons.addStretch(1)
+        self.tally = QLabel()
+        buttons.addWidget(self.tally)
         layout.addLayout(buttons)
 
         self.list = QListWidget()
-        for name in names:
-            item = QListWidgetItem(name)
-            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
-            item.setCheckState(Qt.CheckState.Unchecked)
-            self.list.addItem(item)
+        qconnect(self.list.itemChanged, self.on_item_changed)
         layout.addWidget(self.list, 1)
+        self.refresh()
 
         form = QFormLayout()
         today = QDate.currentDate()
@@ -415,10 +441,55 @@ class RebalanceDialog(QDialog):
 
         self.update_span()
 
+    def refresh(self) -> None:
+        """Rebuild the branch list for the current search term."""
+        branches = branches_for(self.search.text(), self.tags)
+        counts = cards_per_branch(branches)
+        branches.sort(key=lambda b: (-counts.get(b, 0), b))
+
+        self.list.blockSignals(True)
+        self.list.clear()
+        for branch in branches:
+            n = counts.get(branch, 0)
+            if not n:
+                continue
+            item = QListWidgetItem(f"{n:>6,} cards    {branch}")
+            item.setData(Qt.ItemDataRole.UserRole, branch)
+            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+            item.setCheckState(
+                Qt.CheckState.Checked
+                if branch in self.selected
+                else Qt.CheckState.Unchecked
+            )
+            self.list.addItem(item)
+        self.list.blockSignals(False)
+        self.update_tally()
+
+    def on_item_changed(self, item: QListWidgetItem) -> None:
+        branch = item.data(Qt.ItemDataRole.UserRole)
+        if item.checkState() == Qt.CheckState.Checked:
+            self.selected.add(branch)
+        else:
+            self.selected.discard(branch)
+        self.update_tally()
+
+    def update_tally(self) -> None:
+        # Ticks survive a change of search term, so say how many are held.
+        self.tally.setText(f"{len(self.selected)} branch(es) selected")
+
     def set_all(self, checked: bool) -> None:
+        if not checked:
+            self.selected.clear()
         state = Qt.CheckState.Checked if checked else Qt.CheckState.Unchecked
+        self.list.blockSignals(True)
         for i in range(self.list.count()):
-            self.list.item(i).setCheckState(state)
+            item = self.list.item(i)
+            item.setCheckState(state)
+            branch = item.data(Qt.ItemDataRole.UserRole)
+            if checked:
+                self.selected.add(branch)
+        self.list.blockSignals(False)
+        self.update_tally()
 
     def set_span(self, length: int) -> None:
         """A preset counts from the chosen start, not from today."""
@@ -443,11 +514,7 @@ class RebalanceDialog(QDialog):
         return self.start.date(), self.end.date()
 
     def chosen(self) -> list[str]:
-        return [
-            self.list.item(i).text()
-            for i in range(self.list.count())
-            if self.list.item(i).checkState() == Qt.CheckState.Checked
-        ]
+        return sorted(self.selected)
 
 
 def profile(values: list[int], width: int = 10) -> str:
@@ -455,12 +522,20 @@ def profile(values: list[int], width: int = 10) -> str:
     return "  ".join(f"{v:,}" for v in values[:width])
 
 
+def summarise(picked: list[str], limit: int = 4) -> str:
+    """Full tag paths are unreadable in a sentence; name them by their tail."""
+    short = [b.split("::")[-1] for b in picked]
+    if len(short) <= limit:
+        return ", ".join(short)
+    return f"{', '.join(short[:limit])} and {len(short) - limit} more"
+
+
 def describe(plan: Plan, picked: list[str], start: QDate, end: QDate) -> str:
     before_peak = max(plan.before) if plan.before else 0
     after_peak = max(plan.after) if plan.after else 0
 
     lines = [
-        f"Rebalance {plan.moving:,} cards from {', '.join(picked)} across "
+        f"Rebalance {plan.moving:,} cards from {summarise(picked)} across "
         f"{start.toString('MMM d')} – {end.toString('MMM d')} "
         f"({plan.days} days)?",
         "",
@@ -508,17 +583,7 @@ def run() -> None:
         return
 
     conf = get_config()
-    found = subjects(conf)
-    if not found:
-        showInfo(
-            "No subjects found in your tags.\n\nThis reads subjects from a tag "
-            "hierarchy. If you don't use AnKing decks, set tag_prefixes to [] "
-            "in this add-on's config and each top-level tag becomes a subject.",
-            title=ADDON_NAME,
-        )
-        return
-
-    dialog = RebalanceDialog(mw, sorted(found), conf)
+    dialog = RebalanceDialog(mw, conf)
     if not dialog.exec():
         return
 
@@ -536,10 +601,14 @@ def run() -> None:
     end_day = today + now.daysTo(end_date)
 
     if not picked:
-        showInfo("Pick at least one subject.", title=ADDON_NAME)
+        showInfo(
+            "Nothing ticked.\n\nSearch for a tag — try \"pulm\" — and tick "
+            "the branches you want moved.",
+            title=ADDON_NAME,
+        )
         return
 
-    chosen = cards_for_subjects(set(picked))
+    chosen = cards_under(set(picked))
 
     plan = build_plan(mw.col, chosen, start_day, end_day, conf)
     if not plan.moving:
@@ -551,7 +620,7 @@ def run() -> None:
                 "alone. A window closer to today would take them."
             )
         showInfo(
-            f"Nothing from {', '.join(picked)} can move into "
+            f"Nothing from {summarise(picked)} can move into "
             f"{start_date.toString('MMM d')} – {end_date.toString('MMM d')}."
             + extra,
             title=ADDON_NAME,
