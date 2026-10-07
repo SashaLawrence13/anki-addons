@@ -142,7 +142,7 @@ Phase 1, not the add-on. Map the message:
 | Message | Cause | Fix |
 |---|---|---|
 | `Could not find the claude CLI — set claude_path in the addon config.` | Binary is outside the five search paths | Set `claude_path` (Phase 4) |
-| A prompt to run `claude` then `/login` | CLI installed but not authenticated | User runs `claude` and `/login` |
+| A prompt to run `claude` then `/login`, or "Failed to authenticate: OAuth session expired" | CLI never signed in, **or its sign-in has lapsed** | User runs `claude` in Terminal, types `/login`, and signs in again. The sign-in expires every so often, so this is a recurring chore and not a one-time setup. Card Chat recovers the moment they are signed in, no Anki restart needed |
 | `Error from claude: …` | The CLI itself failed | Run the same command in a terminal to see the real error |
 | Nothing happens, then a timeout | Slow model or no network | Raise `timeout_seconds`; check connectivity |
 

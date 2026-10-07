@@ -106,7 +106,9 @@ and give hints instead, so asking for help doesn't spoil the card.
 **Requires the [Claude Code CLI](https://claude.com/claude-code)** — the add-on
 shells out to a `claude` binary and has no API key of its own. Install it, run
 `claude` once and `/login`, and the add-on finds it automatically in the usual
-locations (otherwise set `claude_path`).
+locations (otherwise set `claude_path`). The sign-in expires every so often; when
+it does, the panel tells you to run `claude` and `/login` again, and it works as
+soon as you have.
 
 > **Privacy:** this add-on sends the full contents of the card you're studying —
 > and, for Boss Battle and Confusions, excerpts of cards you've recently failed —
@@ -117,7 +119,7 @@ locations (otherwise set `claude_path`).
 The other five `*_shortcut` keys in the config are declared but never registered
 — those features are buttons only.
 
-**Full setup guide:** [`card_chat/INSTALL_WITH_AI.md`](card_chat/INSTALL_WITH_AI.md)
+**Full setup guide:** [`card_chat/INSTALL_WITH_CLAUDE.md`](card_chat/INSTALL_WITH_CLAUDE.md)
 is written to be handed to Claude. Download it, give it to your assistant, and
 say "follow this file to install Card Chat for me."
 

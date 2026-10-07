@@ -135,6 +135,16 @@ def weak_topics(conf: dict, days: int) -> list[Topic]:
 ######################################################################
 
 
+# Wordings the CLI uses when its sign-in is missing or has lapsed. The login is
+# an OAuth session that expires, so this is a recurring chore rather than a
+# one-time setup, and the message has to say so.
+AUTH_FAILURES = (
+    "Not logged in",
+    "Failed to authenticate",
+    "OAuth session expired",
+    "authentication_error",
+)
+
 def find_claude(conf: dict) -> str | None:
     if conf.get("claude_path"):
         return conf["claude_path"]
@@ -202,10 +212,12 @@ def run_claude(conf: dict, prompt: str) -> str:
         cwd=os.path.expanduser("~"),
     )
     out = result.stdout.strip()
-    if "Not logged in" in out or "Not logged in" in result.stderr:
+    if any(s in out or s in result.stderr for s in AUTH_FAILURES):
         raise RuntimeError(
-            "The claude CLI isn't logged in yet. Open a terminal, run "
-            "'claude', then type /login. Only needed once."
+            "Claude's sign-in has expired. Open a terminal, run 'claude', then "
+            "type /login and sign in again. This comes round every so often, "
+            "and this works again as soon as you are signed in, with no need "
+            "to restart Anki."
         )
     if not out:
         raise RuntimeError(

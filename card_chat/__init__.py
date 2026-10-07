@@ -55,6 +55,16 @@ def get_config():
     return cfg
 
 
+# Wordings the CLI uses when its sign-in is missing or has lapsed. The login is
+# an OAuth session that expires, so this is a recurring chore rather than a
+# one-time setup, and the message has to say so.
+AUTH_FAILURES = (
+    "Not logged in",
+    "Failed to authenticate",
+    "OAuth session expired",
+    "authentication_error",
+)
+
 def find_claude(cfg):
     if cfg.get("claude_path"):
         return cfg["claude_path"]
@@ -89,10 +99,12 @@ def run_claude(cfg, prompt):
         cwd=os.path.expanduser("~"),
     )
     out = result.stdout.strip()
-    if "Not logged in" in out or "Not logged in" in result.stderr:
+    if any(s in out or s in result.stderr for s in AUTH_FAILURES):
         return (
-            "The claude CLI isn't logged in yet. Open Terminal, run "
-            "'claude', then type /login and sign in. Only needed once."
+            "Claude's sign-in has expired. Open Terminal, run 'claude', then "
+            "type /login and sign in again. This comes round every so often, "
+            "and Card Chat works again as soon as you are signed in, with no "
+            "need to restart Anki."
         )
     if not out and result.stderr.strip():
         return "Error from claude: %s" % result.stderr.strip()[:500]
